@@ -14,6 +14,7 @@ class HandTracker:
         # 2. Set the detection parameters
         options = vision.HandLandmarkerOptions(
             base_options=base_options,
+            running_mode=vision.RunningMode.VIDEO, # Use VIDEO mode for real-time webcam performance
             num_hands=2,          # We need 2 hands for the dynamic thickness feature!
             min_hand_detection_confidence=0.7,
             min_hand_presence_confidence=0.7,
@@ -23,15 +24,15 @@ class HandTracker:
         # 3. Create the landmarker object
         self.landmarker = vision.HandLandmarker.create_from_options(options)
 
-    def find_hands(self, rgb_frame):
+    def find_hands(self, rgb_frame, timestamp_ms):
         """
         Passes the frame to the model and returns the detection results.
         """
         # MediaPipe requires its own specific Image format for the Tasks API
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         
-        # Perform the inference
-        detection_result = self.landmarker.detect(mp_image)
+        # Perform the inference using detect_for_video 
+        detection_result = self.landmarker.detect_for_video(mp_image, timestamp_ms)
         
         return detection_result
 
@@ -70,9 +71,8 @@ class HandTracker:
         if len(landmark_list) != 0:
             # 1. Thumb Check
             # The thumb moves horizontally, so we check the X coordinate.
-            # (Note: This simple X-check works perfectly for the right hand. 
-            # It will be inverted for the left hand, but handles standard use cases well).
-            if landmark_list[tip_ids[0]][1] > landmark_list[tip_ids[0] - 1][1]:
+            # For the right hand in a flipped frame, an open thumb points to the left (smaller X).
+            if landmark_list[tip_ids[0]][1] < landmark_list[tip_ids[0] - 1][1]:
                 fingers.append(1)
             else:
                 fingers.append(0)
